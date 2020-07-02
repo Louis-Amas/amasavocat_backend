@@ -1,12 +1,19 @@
-FROM python:3.7.8-stretch
+FROM python
 
 
-WORKDIR /usr/src/app
+RUN mkdir /code
 
-COPY requirements.txt ./
+COPY requirements.txt /code/
 
-RUN pip install --no-cache-dir -r requirements.txt
+ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE 1
 
-COPY . .
+RUN pip install --no-cache-dir -r /code/requirements.txt
 
-CMD ["python", "/usr/src/app/manage.py", "runserver"]
+COPY . /code/
+
+RUN python /code/manage.py collectstatic
+RUN python /code/manage.py makemigrations
+RUN python /code/manage.py migrate
+
+CMD ["python", "code/manage.py", "runserver", "0.0.0.0:8000"]
