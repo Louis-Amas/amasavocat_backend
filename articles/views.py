@@ -5,9 +5,11 @@ from rest_framework import mixins
 from rest_framework import generics
 from rest_framework import permissions
 from rest_framework.reverse import reverse
-
+from rest_framework.pagination import PageNumberPagination
 
 from django.contrib.auth.models import User
+from django.core.paginator import Paginator
+
 from django.http import Http404
 from articles.models import Article
 from articles.serializers import ArticleSerializer, UserSerializer
@@ -20,9 +22,44 @@ def api_root(request, format=None):
         'articles': reverse('article-list', request=request, format=format)
     })
 
+
+class CustomPaginator(PageNumberPagination):
+    page_size = 10
+
+    def generate_response(self, queryset, serializer, request):
+        page_data = self.paginate_queryset(queryset, request)
+        serialized_page = serializer(page_data, many=True)
+        return self.get_paginated_response(serialized_page.data)
+
+class ArticleListByUser(APIView):
+    def get(self, request, pk, num=1, format=None):
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response(status=404)
+        p = CustomPaginator()
+        return p.generate_response(Article.objects.filter(owner=pk), ArticleSerializer, request)
+        
+
+
+
+@api_view(['GET'])
+def article_list_by_user(request, pk):
+    try:
+        user = User.objects.get(pk=pk)
+    except User.DoesNotExist:
+        return Response(status=404)
+    
+    serializer = ArticleSerializer(Article.objects.filter(owner=pk), many=True)
+    return Response(serializer.data)
+
 class UserList(generics.ListAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+
+
+
 
 class ArticleListGeneric(generics.ListCreateAPIView):
     queryset = Article.objects.all()
